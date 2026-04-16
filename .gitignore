@@ -36,3 +36,6 @@ build/
 application-local.properties
 .env
 *.env
+
+build-error.log
+*.log
