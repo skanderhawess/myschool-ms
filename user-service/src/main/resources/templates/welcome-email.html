@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <style>
+    body { font-family: Arial, sans-serif; background:#f3f4f6; margin:0; padding:0; }
+    .container { max-width:600px; margin:40px auto; background:white;
+                 border-radius:12px; overflow:hidden; }
+    .header { background:#7c3aed; padding:32px; text-align:center; }
+    .header h1 { color:white; margin:0; font-size:24px; }
+    .header p { color:#ede9fe; margin:8px 0 0; }
+    .body { padding:32px; }
+    .body h2 { color:#1f2937; }
+    .body p { color:#6b7280; line-height:1.7; }
+    .button { display:inline-block; margin-top:24px; padding:12px 28px;
+              background:#7c3aed; color:white; border-radius:8px;
+              text-decoration:none; font-weight:bold; }
+    .footer { padding:16px 32px; background:#f9fafb;
+              color:#9ca3af; font-size:12px; text-align:center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎓 MySchool</h1>
+      <p>Your learning platform</p>
+    </div>
+    <div class="body">
+      <h2>Welcome, <span th:text="${studentName}">Student</span>!</h2>
+      <p>Your account has been successfully created on MySchool platform.</p>
+      <p>You can now log in and start exploring available courses.</p>
+      <a href="http://localhost:4200/login" class="button">
+        Start Learning →
+      </a>
+    </div>
+    <div class="footer">
+      This email was sent automatically by MySchool platform.
+    </div>
+  </div>
+</body>
+</html>
