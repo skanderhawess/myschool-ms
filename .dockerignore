@@ -1,0 +1,43 @@
+# Build artifacts
+**/target/
+**/build/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Frontend (si present dans le projet)
+**/node_modules/
+**/dist/
+**/.angular/
+
+# Logs
+**/*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Maven wrapper (optionnel — pas necessaire dans les images)
+.mvn/wrapper/maven-wrapper.jar
+
+# Documentation
+*.md
+!README.md
+
+# Docker files (inutile de les copier dans les builds)
+docker-compose*.yml
+.dockerignore
+
+# Env locaux
+.env
+.env.*
+!.env.example

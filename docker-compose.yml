@@ -1,0 +1,156 @@
+services:
+
+  # ============================================
+  # BASES DE DONNEES
+  # ============================================
+
+  mysql:
+    image: mysql:8.0
+    container_name: myschool-mysql
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: myschool_db
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - myschool-network
+
+  mongodb:
+    image: mongo:7
+    container_name: myschool-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval \"db.adminCommand('ping').ok\" | grep -q 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - myschool-network
+
+  # ============================================
+  # MICROSERVICES SPRING BOOT
+  # ============================================
+
+  discovery-service:
+    build:
+      context: .
+      dockerfile: discovery-service/Dockerfile
+    container_name: myschool-discovery
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8761/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - myschool-network
+
+  config-service:
+    build:
+      context: .
+      dockerfile: config-service/Dockerfile
+    container_name: myschool-config
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+    environment:
+      EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE: http://discovery-service:8761/eureka
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+    networks:
+      - myschool-network
+
+  gateway-service:
+    build:
+      context: .
+      dockerfile: gateway-service/Dockerfile
+    container_name: myschool-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE: http://discovery-service:8761/eureka
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+      config-service:
+        condition: service_started
+    networks:
+      - myschool-network
+
+  user-service:
+    build:
+      context: .
+      dockerfile: user-service/Dockerfile
+    container_name: myschool-user
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myschool_db?useSSL=false&serverTimezone=UTC&createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=UTF-8
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_SQL_INIT_MODE: never
+      SPRING_JPA_HIBERNATE_DDL-AUTO: update
+      EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE: http://discovery-service:8761/eureka
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+      gateway-service:
+        condition: service_started
+    networks:
+      - myschool-network
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: notification-service/Dockerfile
+    container_name: myschool-notification
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/myschool_notifications
+      SPRING_DATA_MONGODB_DATABASE: myschool_notifications
+      EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE: http://discovery-service:8761/eureka
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+    networks:
+      - myschool-network
+
+# ============================================
+# VOLUMES PERSISTANTS
+# ============================================
+volumes:
+  mysql-data:
+  mongo-data:
+
+# ============================================
+# RESEAU INTERNE
+# ============================================
+networks:
+  myschool-network:
+    driver: bridge
