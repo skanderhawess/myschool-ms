@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <style>
+    body { font-family: Arial, sans-serif; background:#f3f4f6; margin:0; padding:0; }
+    .container { max-width:600px; margin:40px auto; background:white;
+                 border-radius:12px; overflow:hidden; }
+    .header { background:#dc2626; padding:32px; text-align:center; }
+    .header h1 { color:white; margin:0; font-size:22px; }
+    .header p { color:#fecaca; margin:8px 0 0; font-size:14px; }
+    .body { padding:32px; }
+    .body p { color:#6b7280; line-height:1.7; font-size:14px; }
+    .alert-box { margin:24px 0; padding:20px;
+                 background:#fef2f2; border-left:4px solid #dc2626;
+                 border-radius:8px; }
+    .alert-box h3 { color:#dc2626; margin:0 0 8px; font-size:16px; }
+    .alert-box p { color:#6b7280; margin:4px 0; font-size:13px; }
+    .stat { display:inline-block; padding:8px 16px;
+            background:#dc2626; color:white;
+            border-radius:6px; font-weight:bold; font-size:18px; }
+    .footer { padding:16px 32px; background:#f9fafb;
+              color:#9ca3af; font-size:12px; text-align:center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>MySchool — Capacity Alert</h1>
+      <p>A course has reached maximum capacity</p>
+    </div>
+    <div class="body">
+      <p>Hello Admin,</p>
+      <p>The following course has just reached its maximum capacity:</p>
+      <div class="alert-box">
+        <h3 th:text="${courseTitle}">Course Title</h3>
+        <p>Date: <span th:text="${courseDate}">Date</span></p>
+        <p>Enrolled: <span class="stat" th:text="${enrolledCount}">0</span>
+           / <span th:text="${maxCapacity}">30</span> students</p>
+      </div>
+      <p>You may want to consider opening a new session or increasing the capacity.</p>
+    </div>
+    <div class="footer">
+      This alert was sent automatically by MySchool platform.
+    </div>
+  </div>
+</body>
+</html>

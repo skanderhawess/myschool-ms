@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <style>
+    body { font-family: Arial, sans-serif; background:#f3f4f6; margin:0; padding:0; }
+    .container { max-width:600px; margin:40px auto; background:white;
+                 border-radius:12px; overflow:hidden; }
+    .header { background:#7c3aed; padding:32px; text-align:center; }
+    .header h1 { color:white; margin:0; font-size:24px; }
+    .course-box { margin:24px 0; padding:20px; background:#f5f3ff;
+                  border-left:4px solid #7c3aed; border-radius:8px; }
+    .course-box h3 { color:#7c3aed; margin:0 0 8px; }
+    .course-box p { color:#6b7280; margin:4px 0; }
+    .body { padding:32px; }
+    .body p { color:#6b7280; line-height:1.7; }
+    .button { display:inline-block; margin-top:24px; padding:12px 28px;
+              background:#7c3aed; color:white; border-radius:8px;
+              text-decoration:none; font-weight:bold; }
+    .footer { padding:16px 32px; background:#f9fafb;
+              color:#9ca3af; font-size:12px; text-align:center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>MySchool</h1>
+    </div>
+    <div class="body">
+      <p>Hello <strong th:text="${studentName}">Student</strong>,</p>
+      <p>Your enrollment has been confirmed!</p>
+      <div class="course-box">
+        <h3 th:text="${courseTitle}">Course Title</h3>
+        <p>Date: <span th:text="${courseDate}">Date</span></p>
+      </div>
+      <p>We look forward to seeing you in class.</p>
+      <a href="http://localhost:4200/admin/dashboard" class="button">
+        View My Courses
+      </a>
+    </div>
+    <div class="footer">
+      This email was sent automatically by MySchool platform.
+    </div>
+  </div>
+</body>
+</html>
