@@ -1,8 +1,10 @@
 package com.myschool.userservice.service;
 
+import com.myschool.userservice.client.NotificationClient;
 import com.myschool.userservice.dto.EnrollmentRequest;
 import com.myschool.userservice.dto.EnrollmentResponse;
 import com.myschool.userservice.entity.Enrollment;
+import com.myschool.userservice.repository.CourseRepository;
 import com.myschool.userservice.repository.EnrollmentRepository;
 import com.myschool.userservice.repository.StudentRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +32,18 @@ class EnrollmentServiceTest {
 
     @Mock
     private StudentRepository studentRepository;
+
+    // Dependances supplementaires de EnrollmentService :
+    //   - CourseRepository  : utilise dans enroll() pour recuperer le cours et
+    //     alimenter la notification Feign. Sans ce @Mock, courseRepository est
+    //     null et provoque un NullPointerException.
+    //   - NotificationClient : client Feign appele apres la sauvegarde. Sans
+    //     ce @Mock, l'injection Mockito echouerait (constructeur @RequiredArgsConstructor).
+    @Mock
+    private CourseRepository courseRepository;
+
+    @Mock
+    private NotificationClient notificationClient;
 
     @InjectMocks
     private EnrollmentService enrollmentService;

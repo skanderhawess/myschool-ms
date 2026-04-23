@@ -4,7 +4,6 @@ import com.myschool.userservice.dto.CourseStatsDto;
 import com.myschool.userservice.dto.DashboardStatsDto;
 import com.myschool.userservice.dto.StudentReportDto;
 import com.myschool.userservice.entity.Course;
-import com.myschool.userservice.entity.Enrollment;
 import com.myschool.userservice.entity.Student;
 import com.myschool.userservice.entity.User;
 import com.myschool.userservice.repository.CourseRepository;
@@ -16,6 +15,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,10 +24,20 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+/**
+ * Tests unitaires de ReportService.
+ *
+ * Strictness.LENIENT : le setUp instancie plusieurs fixtures partagees entre
+ * tests (Users, Students, Courses, Enrollments). Selon le test, certaines
+ * stubs ne sont pas consommees par la methode sous test — c'est un faux positif
+ * du mode strict de Mockito. LENIENT neutralise le UnnecessaryStubbingException
+ * sans masquer les vraies erreurs d'assertion.
+ */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class ReportServiceTest {
 
-    // ── Mocks ──────────────────────────────────────────────────────────────
+    // -- Mocks ---------------------------------------------------------------
 
     @Mock
     private StudentRepository studentRepository;
@@ -40,42 +51,58 @@ class ReportServiceTest {
     @InjectMocks
     private ReportService reportService;
 
-    // ── Fixtures ───────────────────────────────────────────────────────────
+    // -- Fixtures ------------------------------------------------------------
 
-    private User       mockUser1;
-    private User       mockUser2;
-    private Student    mockStudent1;
-    private Student    mockStudent2;
-    private Course     mockCourse1;   // id=10, "Spring Boot"
-    private Course     mockCourse2;   // id=20, "Angular"
-    private Enrollment enrollment1;   // student 1 → course 10
-    private Enrollment enrollment2;   // student 1 → course 20
-    private Enrollment enrollment3;   // student 2 → course 10
+    private Student mockStudent1;
+    private Student mockStudent2;
+    private Course  mockCourse1;   // id=10, "Spring Boot", capacity=2
+    private Course  mockCourse2;   // id=20, "Angular",     capacity=2
 
     @BeforeEach
     void setUp() {
-        mockUser1 = User.builder()
+        User mockUser1 = User.builder()
                 .id(1L).fullName("Alice Martin").email("alice@test.com").password("pass")
                 .build();
-        mockUser2 = User.builder()
+        User mockUser2 = User.builder()
                 .id(2L).fullName("Bob Dupont").email("bob@test.com").password("pass")
                 .build();
 
         mockStudent1 = Student.builder().id(1L).user(mockUser1).level("1st year").build();
         mockStudent2 = Student.builder().id(2L).user(mockUser2).level("2nd year").build();
 
-        // Course has @AllArgsConstructor (no @Builder) → use constructor
-        mockCourse1 = new Course(10L, "Spring Boot", LocalDateTime.now(),30);
-        mockCourse2 = new Course(20L, "Angular",     LocalDateTime.now(),30);
-
-        enrollment1 = Enrollment.builder().id(1L).studentId(1L).courseId(10L).build();
-        enrollment2 = Enrollment.builder().id(2L).studentId(1L).courseId(20L).build();
-        enrollment3 = Enrollment.builder().id(3L).studentId(2L).courseId(10L).build();
+        // Capacite=2 pour que les assertions de fillRate (100% et 50%) restent valides :
+        //   Spring Boot : 2 inscrits / 2 places = 100%
+        //   Angular     : 1 inscrit  / 2 places =  50%
+        mockCourse1 = new Course(10L, "Spring Boot", LocalDateTime.now(), 2);
+        mockCourse2 = new Course(20L, "Angular",     LocalDateTime.now(), 2);
     }
 
-    // ══════════════════════════════════════════════════════════════════════
+    /**
+     * Helper : stubbe le resultat de countEnrollmentsGroupedByCourse()
+     * avec le nouveau contrat List<Object[]> ou chaque ligne = [courseId, count].
+     * Cette requete remplace les anciens findAllByCourseId() (optimisation N+1).
+     */
+    private void stubCourseEnrollmentCounts(long course1Count, long course2Count) {
+        when(enrollmentRepository.countEnrollmentsGroupedByCourse()).thenReturn(List.of(
+                new Object[]{10L, course1Count},
+                new Object[]{20L, course2Count}
+        ));
+    }
+
+    /**
+     * Helper : stubbe le resultat de countEnrollmentsGroupedByStudent()
+     * avec le nouveau contrat List<Object[]> ou chaque ligne = [studentId, count].
+     */
+    private void stubStudentEnrollmentCounts(long student1Count, long student2Count) {
+        when(enrollmentRepository.countEnrollmentsGroupedByStudent()).thenReturn(List.of(
+                new Object[]{1L, student1Count},
+                new Object[]{2L, student2Count}
+        ));
+    }
+
+    // =======================================================================
     // getDashboardStats()
-    // ══════════════════════════════════════════════════════════════════════
+    // =======================================================================
 
     @Test
     void getDashboardStats_shouldReturnCorrectCounts() {
@@ -84,8 +111,7 @@ class ReportServiceTest {
         when(courseRepository.count()).thenReturn(2L);
         when(enrollmentRepository.count()).thenReturn(3L);
         when(courseRepository.findAll()).thenReturn(List.of(mockCourse1, mockCourse2));
-        when(enrollmentRepository.findAllByCourseId(10L)).thenReturn(List.of(enrollment1, enrollment3));
-        when(enrollmentRepository.findAllByCourseId(20L)).thenReturn(List.of(enrollment2));
+        stubCourseEnrollmentCounts(2L, 1L);
 
         // WHEN
         DashboardStatsDto result = reportService.getDashboardStats();
@@ -99,13 +125,12 @@ class ReportServiceTest {
 
     @Test
     void getDashboardStats_shouldComputeCorrectAverageEnrollmentsPerCourse() {
-        // GIVEN — 3 enrollments / 2 courses → avg = 1.5
+        // GIVEN -- 3 inscriptions / 2 cours => moyenne = 1.5
         when(studentRepository.count()).thenReturn(2L);
         when(courseRepository.count()).thenReturn(2L);
         when(enrollmentRepository.count()).thenReturn(3L);
         when(courseRepository.findAll()).thenReturn(List.of(mockCourse1, mockCourse2));
-        when(enrollmentRepository.findAllByCourseId(10L)).thenReturn(List.of(enrollment1, enrollment3));
-        when(enrollmentRepository.findAllByCourseId(20L)).thenReturn(List.of(enrollment2));
+        stubCourseEnrollmentCounts(2L, 1L);
 
         // WHEN
         DashboardStatsDto result = reportService.getDashboardStats();
@@ -116,13 +141,12 @@ class ReportServiceTest {
 
     @Test
     void getDashboardStats_shouldIdentifyMostPopularCourse() {
-        // GIVEN — Spring Boot has 2 enrollments, Angular has 1 → Spring Boot wins
+        // GIVEN -- Spring Boot a 2 inscriptions, Angular en a 1 => Spring Boot gagne
         when(studentRepository.count()).thenReturn(2L);
         when(courseRepository.count()).thenReturn(2L);
         when(enrollmentRepository.count()).thenReturn(3L);
         when(courseRepository.findAll()).thenReturn(List.of(mockCourse1, mockCourse2));
-        when(enrollmentRepository.findAllByCourseId(10L)).thenReturn(List.of(enrollment1, enrollment3));
-        when(enrollmentRepository.findAllByCourseId(20L)).thenReturn(List.of(enrollment2));
+        stubCourseEnrollmentCounts(2L, 1L);
 
         // WHEN
         DashboardStatsDto result = reportService.getDashboardStats();
@@ -135,39 +159,37 @@ class ReportServiceTest {
 
     @Test
     void getDashboardStats_shouldReturnZeroMetrics_whenNoCourses() {
-        // GIVEN — database is empty
+        // GIVEN -- base vide
         when(studentRepository.count()).thenReturn(0L);
         when(courseRepository.count()).thenReturn(0L);
         when(enrollmentRepository.count()).thenReturn(0L);
         when(courseRepository.findAll()).thenReturn(List.of());
-        // findAllByCourseId is never reached (empty stream) → no stub needed
+        when(enrollmentRepository.countEnrollmentsGroupedByCourse()).thenReturn(List.of());
 
         // WHEN
         DashboardStatsDto result = reportService.getDashboardStats();
 
-        // THEN — safe defaults when there are no courses
+        // THEN -- valeurs par defaut securisees
         assertEquals(0.0,  result.getAverageEnrollmentsPerCourse());
         assertEquals(0L,   result.getMostPopularCourseId());
         assertEquals("N/A", result.getMostPopularCourseTitle());
         assertEquals(0L,   result.getMostPopularCourseEnrollments());
     }
 
-    // ══════════════════════════════════════════════════════════════════════
+    // =======================================================================
     // getCourseStats()
-    // ══════════════════════════════════════════════════════════════════════
+    // =======================================================================
 
     @Test
     void getCourseStats_shouldReturnListSortedByEnrollmentCountDescending() {
-        // GIVEN — Spring Boot 2 enrolled, Angular 1 enrolled
-        when(studentRepository.count()).thenReturn(2L);
+        // GIVEN -- Spring Boot : 2 inscrits, Angular : 1 inscrit
         when(courseRepository.findAll()).thenReturn(List.of(mockCourse1, mockCourse2));
-        when(enrollmentRepository.findAllByCourseId(10L)).thenReturn(List.of(enrollment1, enrollment3));
-        when(enrollmentRepository.findAllByCourseId(20L)).thenReturn(List.of(enrollment2));
+        stubCourseEnrollmentCounts(2L, 1L);
 
         // WHEN
         List<CourseStatsDto> result = reportService.getCourseStats();
 
-        // THEN — Spring Boot must appear first (most enrolled)
+        // THEN -- Spring Boot doit apparaitre en premier (plus d'inscrits)
         assertEquals(2, result.size());
         assertEquals(10L, result.get(0).getCourseId());
         assertEquals(2L,  result.get(0).getEnrolledCount());
@@ -177,18 +199,16 @@ class ReportServiceTest {
 
     @Test
     void getCourseStats_shouldComputeCorrectFillRates() {
-        // GIVEN — 2 total students
-        //   Spring Boot: 2 enrolled → 2/2 * 100 = 100.0 %
-        //   Angular:     1 enrolled → 1/2 * 100 =  50.0 %
-        when(studentRepository.count()).thenReturn(2L);
+        // GIVEN -- capacite=2 par cours (voir setUp) :
+        //   Spring Boot : 2 inscrits / 2 places = 100.0 %
+        //   Angular     : 1 inscrit  / 2 places =  50.0 %
         when(courseRepository.findAll()).thenReturn(List.of(mockCourse1, mockCourse2));
-        when(enrollmentRepository.findAllByCourseId(10L)).thenReturn(List.of(enrollment1, enrollment3));
-        when(enrollmentRepository.findAllByCourseId(20L)).thenReturn(List.of(enrollment2));
+        stubCourseEnrollmentCounts(2L, 1L);
 
         // WHEN
         List<CourseStatsDto> result = reportService.getCourseStats();
 
-        // THEN — result is sorted desc so index 0 = Spring Boot, index 1 = Angular
+        // THEN -- liste triee desc : index 0 = Spring Boot, index 1 = Angular
         assertEquals(100.0, result.get(0).getFillRate());
         assertEquals(50.0,  result.get(1).getFillRate());
     }
@@ -196,9 +216,8 @@ class ReportServiceTest {
     @Test
     void getCourseStats_shouldReturnEmptyList_whenNoCourses() {
         // GIVEN
-        when(studentRepository.count()).thenReturn(0L);
         when(courseRepository.findAll()).thenReturn(List.of());
-        // findAllByCourseId is never reached → no stub needed
+        when(enrollmentRepository.countEnrollmentsGroupedByCourse()).thenReturn(List.of());
 
         // WHEN
         List<CourseStatsDto> result = reportService.getCourseStats();
@@ -207,21 +226,20 @@ class ReportServiceTest {
         assertTrue(result.isEmpty());
     }
 
-    // ══════════════════════════════════════════════════════════════════════
+    // =======================================================================
     // getStudentReport()
-    // ══════════════════════════════════════════════════════════════════════
+    // =======================================================================
 
     @Test
     void getStudentReport_shouldReturnAllStudentsWithCorrectEnrollmentCounts() {
-        // GIVEN — Alice enrolled in 2 courses, Bob enrolled in 1
+        // GIVEN -- Alice inscrite a 2 cours, Bob inscrit a 1
         when(studentRepository.findAll()).thenReturn(List.of(mockStudent1, mockStudent2));
-        when(enrollmentRepository.findAllByStudentId(1L)).thenReturn(List.of(enrollment1, enrollment2));
-        when(enrollmentRepository.findAllByStudentId(2L)).thenReturn(List.of(enrollment3));
+        stubStudentEnrollmentCounts(2L, 1L);
 
         // WHEN
         List<StudentReportDto> result = reportService.getStudentReport();
 
-        // THEN — sorted alphabetically: Alice before Bob
+        // THEN -- tri alphabetique : Alice avant Bob
         assertEquals(2, result.size());
         assertEquals(2L, result.get(0).getEnrolledCourses()); // Alice Martin
         assertEquals(1L, result.get(1).getEnrolledCourses()); // Bob Dupont
@@ -229,15 +247,14 @@ class ReportServiceTest {
 
     @Test
     void getStudentReport_shouldBeSortedAlphabeticallyByFullName() {
-        // GIVEN — input list is intentionally reversed to verify sorting
+        // GIVEN -- ordre d'entree volontairement inverse pour verifier le tri
         when(studentRepository.findAll()).thenReturn(List.of(mockStudent2, mockStudent1));
-        when(enrollmentRepository.findAllByStudentId(1L)).thenReturn(List.of(enrollment1, enrollment2));
-        when(enrollmentRepository.findAllByStudentId(2L)).thenReturn(List.of(enrollment3));
+        stubStudentEnrollmentCounts(2L, 1L);
 
         // WHEN
         List<StudentReportDto> result = reportService.getStudentReport();
 
-        // THEN — output must be alphabetical regardless of input order
+        // THEN -- sortie triee alphabetiquement quel que soit l'ordre d'entree
         assertEquals("Alice Martin", result.get(0).getFullName());
         assertEquals("Bob Dupont",   result.get(1).getFullName());
     }
@@ -246,7 +263,7 @@ class ReportServiceTest {
     void getStudentReport_shouldReturnEmptyList_whenNoStudents() {
         // GIVEN
         when(studentRepository.findAll()).thenReturn(List.of());
-        // findAllByStudentId is never reached → no stub needed
+        when(enrollmentRepository.countEnrollmentsGroupedByStudent()).thenReturn(List.of());
 
         // WHEN
         List<StudentReportDto> result = reportService.getStudentReport();
