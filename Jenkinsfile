@@ -1,46 +1,33 @@
-// =============================================================================
-// Jenkinsfile - Pipeline CI/CD Backend MySchool (Spring Boot Microservices)
-// =============================================================================
-// Objectif : automatiser Build, Tests unitaires et analyse SonarQube
-// Outils configures dans Jenkins :
-//   - Maven3  : installation Maven declaree dans Global Tool Configuration
-//   - JDK17   : installation JDK 17 declaree dans Global Tool Configuration
-//   - SonarQubeServer : serveur Sonar configure dans Manage Jenkins > System
-// =============================================================================
+// ============================================================================
+// Jenkinsfile - Pipeline CI pour myschool-ms
+// Sprint 3 DevOps - Validation S11
+// ============================================================================
+// Ce pipeline automatise :
+//   1. Checkout du code depuis GitHub
+//   2. Build Maven des 5 microservices
+//   3. Exécution des tests unitaires avec JaCoCo (couverture)
+//   4. Analyse qualité du code avec SonarQube
+// ============================================================================
 
 pipeline {
-
-    // Le pipeline s'execute sur n'importe quel agent Jenkins disponible
     agent any
 
-    // Declaration des outils necessaires (resolus depuis la configuration Jenkins)
+    // Outils configurés dans Jenkins (Manage Jenkins > Tools)
     tools {
         maven 'Maven3'
         jdk   'JDK17'
     }
 
-    // Options globales du pipeline
     options {
-        // On conserve uniquement les 10 derniers builds pour limiter l'espace disque
-        buildDiscarder(logRotator(numToKeepStr: '10'))
-        // Timeout global du pipeline (30 minutes)
         timeout(time: 30, unit: 'MINUTES')
-        // Affichage du timestamp dans les logs de la console
         timestamps()
-    }
-
-    // Variables d'environnement partagees entre les etapes
-    environment {
-        // Cle du projet cote SonarQube (doit correspondre a celle creee sur Sonar)
-        SONAR_PROJECT_KEY = 'myschool-ms'
     }
 
     stages {
 
-        // ---------------------------------------------------------------------
-        // STAGE 1 : Checkout
-        // ---------------------------------------------------------------------
-        // Recupere le code source depuis le repository Git configure sur le job
+        // ====================================================================
+        // STAGE 1 : Récupération du code source
+        // ====================================================================
         stage('Checkout') {
             steps {
                 echo '>>> [1/4] Recuperation du code source depuis GitHub...'
@@ -49,62 +36,60 @@ pipeline {
             }
         }
 
-        // ---------------------------------------------------------------------
-        // STAGE 2 : Build
-        // ---------------------------------------------------------------------
-        // Compile tous les modules Maven sans executer les tests (plus rapide)
+        // ====================================================================
+        // STAGE 2 : Compilation Maven multi-modules
+        // ====================================================================
         stage('Build') {
             steps {
                 echo '>>> [2/4] Compilation des microservices (multi-modules Maven)...'
-                // -B : mode batch (pas d'interactions), -DskipTests : on saute les tests ici
-                bat 'mvn clean compile -DskipTests -B'
+                sh 'mvn clean compile -DskipTests'
                 echo '>>> Compilation terminee avec succes.'
             }
         }
 
-        // ---------------------------------------------------------------------
-        // STAGE 3 : Unit Tests
-        // ---------------------------------------------------------------------
-        // Execute les tests unitaires JUnit et publie les rapports dans Jenkins
+        // ====================================================================
+        // STAGE 3 : Tests unitaires avec JaCoCo (couverture de code)
+        // ====================================================================
         stage('Unit Tests') {
             steps {
-                echo '>>> [3/4] Execution des tests unitaires (JUnit + JaCoCo)...'
-                // JaCoCo est branche via prepare-agent (defini dans le pom parent)
-                bat 'mvn test -B'
+                echo '>>> [3/4] Execution des tests unitaires avec couverture JaCoCo...'
+                sh 'mvn test'
                 echo '>>> Tests unitaires termines.'
             }
             post {
-                // Toujours publier les rapports de tests, meme si un test a echoue
                 always {
-                    echo '>>> Publication des rapports JUnit dans Jenkins...'
+                    // Publier les rapports de test dans l'UI Jenkins
                     junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
                 }
             }
         }
 
-        // ---------------------------------------------------------------------
-        // STAGE 4 : SonarQube Analysis
-        // ---------------------------------------------------------------------
-        // Envoie le code + rapports JaCoCo a SonarQube pour analyse qualite
+        // ====================================================================
+        // STAGE 4 : Analyse qualité du code avec SonarQube
+        // ====================================================================
         stage('SonarQube Analysis') {
             steps {
-                echo '>>> [4/4] Analyse qualite du code via SonarQube...'
-                // withSonarQubeEnv injecte l'URL + le token du serveur "SonarQubeServer"
+                echo '>>> [4/4] Analyse qualite du code avec SonarQube...'
                 withSonarQubeEnv('SonarQubeServer') {
-                    bat "mvn sonar:sonar -Dsonar.projectKey=${SONAR_PROJECT_KEY} -B"
+                    sh '''
+                        mvn sonar:sonar \
+                          -Dsonar.projectKey=myschool-ms \
+                          -Dsonar.projectName="MySchool Backend"
+                    '''
                 }
-                echo '>>> Analyse SonarQube envoyee. Resultats visibles sur http://localhost:9000'
+                echo '>>> Analyse SonarQube terminee.'
             }
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Post-actions : executees a la fin du pipeline (succes ou echec)
-    // -------------------------------------------------------------------------
+    // ========================================================================
+    // Actions de fin de pipeline
+    // ========================================================================
     post {
         success {
             echo '============================================================'
-            echo 'PIPELINE BACKEND : SUCCES - Build + Tests + Sonar OK'
+            echo 'PIPELINE BACKEND : SUCCES !'
+            echo 'Voir les resultats SonarQube : http://localhost:9000'
             echo '============================================================'
         }
         failure {
