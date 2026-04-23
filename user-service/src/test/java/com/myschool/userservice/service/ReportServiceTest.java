@@ -65,8 +65,8 @@ class ReportServiceTest {
         mockStudent2 = Student.builder().id(2L).user(mockUser2).level("2nd year").build();
 
         // Course has @AllArgsConstructor (no @Builder) → use constructor
-        mockCourse1 = new Course(10L, "Spring Boot", LocalDateTime.now());
-        mockCourse2 = new Course(20L, "Angular",     LocalDateTime.now());
+        mockCourse1 = new Course(10L, "Spring Boot", LocalDateTime.now(),30);
+        mockCourse2 = new Course(20L, "Angular",     LocalDateTime.now(),30);
 
         enrollment1 = Enrollment.builder().id(1L).studentId(1L).courseId(10L).build();
         enrollment2 = Enrollment.builder().id(2L).studentId(1L).courseId(20L).build();
