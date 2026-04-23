@@ -73,7 +73,7 @@ pipeline {
                 withSonarQubeEnv('SonarQubeServer') {
                     sh '''
                         mvn sonar:sonar \
-                          -Dsonar.projectKey=myschool-ms \
+                          -Dsonar.projectKey=MySchool-ms \
                           -Dsonar.projectName="MySchool Backend"
                     '''
                 }
