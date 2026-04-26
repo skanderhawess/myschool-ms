@@ -98,7 +98,7 @@
                          Le XML est utilise par SonarQube pour afficher la coverage -->
                     <execution>
                         <id>report</id>
-                        <phase>verify</phase>
+                        <phase>test</phase>
                         <goals>
                             <goal>report</goal>
                         </goals>
