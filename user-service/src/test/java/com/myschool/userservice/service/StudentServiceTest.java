@@ -23,6 +23,7 @@ import org.mockito.InOrder;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import com.myschool.userservice.client.NotificationClient;
 
 @ExtendWith(MockitoExtension.class)
 class StudentServiceTest {
@@ -40,6 +41,9 @@ class StudentServiceTest {
 
     @Mock
     private EnrollmentRepository enrollmentRepository;
+
+    @Mock
+    private NotificationClient notificationClient;
 
     @InjectMocks
     private StudentService studentService;
