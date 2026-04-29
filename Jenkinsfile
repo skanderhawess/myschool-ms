@@ -95,15 +95,24 @@ pipeline {
             }
         }
 
-        stage('Deploy') {
+     stage('Deploy') {
             steps {
-                echo '>>> [7/7] Deploiement avec Docker Compose...'
+                echo '>>> [7/7] Deploiement - Simulation...'
                 sh '''
-                    cd /var/jenkins_home/workspace/myschool-ms-pipeline || true
-                    docker-compose down --remove-orphans || true
-                    docker-compose up -d --no-build
+                    echo "============================================================"
+                    echo "Production deployment would run here"
+                    echo "Images already published to Docker Hub:"
+                    echo "  - skanderhawess/myschool-discovery-service:${BUILD_NUMBER}"
+                    echo "  - skanderhawess/myschool-config-service:${BUILD_NUMBER}"
+                    echo "  - skanderhawess/myschool-gateway-service:${BUILD_NUMBER}"
+                    echo "  - skanderhawess/myschool-user-service:${BUILD_NUMBER}"
+                    echo "  - skanderhawess/myschool-notification-service:${BUILD_NUMBER}"
+                    echo ""
+                    echo "To deploy in production environment:"
+                    echo "  docker-compose -f docker-compose.yml up -d"
+                    echo "============================================================"
                 '''
-                echo '>>> Deploiement termine.'
+                echo '>>> Deploiement simule avec succes.'
             }
         }
     }
