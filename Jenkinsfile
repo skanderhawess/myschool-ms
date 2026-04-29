@@ -124,7 +124,7 @@ pipeline {
         success {
             echo '============================================================'
             echo 'PIPELINE BACKEND CI+CD : SUCCES !'
-            echo "Images publiees sur https://hub.docker.com/u/$skanderhawess"
+            echo "Images publiees sur https://hub.docker.com/u/skanderhawess"
             echo 'Microservices deployes avec docker-compose.'
             echo '============================================================'
         }
